@@ -2,6 +2,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 require_once('PG_Signature.php');
+require_once('ofd.php');
 
 /**
   Plugin Name: Platron Payment Gateway
@@ -22,6 +23,8 @@ function woocommerce_platron(){
 		return;
 	
 class WC_Platron extends WC_Payment_Gateway{
+	const ERROR_TYPE = 'platron';
+
 	public function __construct(){
 		
 		$plugin_dir = plugin_dir_url(__FILE__);
@@ -43,16 +46,14 @@ class WC_Platron extends WC_Payment_Gateway{
 		$this->lifetime = $this->get_option('lifetime');
 		$this->testmode = $this->get_option('testmode');
 
+		$this->send_receipt = 'yes' === $this->get_option('ofd_send_receipt', 'no');
+		$this->tax_type = $this->get_option('ofd_tax_type', 'none');
+
 		$this->description = $this->get_option('description');
 		$this->instructions = $this->get_option('instructions');
 
-		// Logs
-		if ($this->debug == 'yes'){
-			$this->log = $woocommerce->logger();
-		}
-
 		// Actions
-		add_action('woocommerce_receipt_platron', array($this, 'receipt_page'));
+		//add_action('woocommerce_receipt_platron', array($this, 'receipt_page'));
 
 		// Save options
 		add_action( 'woocommerce_update_options_payment_gateways_platron', array( $this, 'process_admin_options' ) );
@@ -64,7 +65,7 @@ class WC_Platron extends WC_Payment_Gateway{
 			$this->enabled = false;
 		}
 	}
-	
+
 	/**
 	 * Check if this gateway is enabled and available in the user's country
 	 */
@@ -165,7 +166,28 @@ class WC_Platron extends WC_Payment_Gateway{
 					'type' => 'textarea',
 					'description' => __( 'Инструкции, которые будут добавлены на страницу благодарностей.', 'woocommerce' ),
 					'default' => 'Оплата с помощью platron.'
-				)
+				),
+				'ofd_send_receipt' => array(
+					'title' => __('Отправлять чек в ОФД', 'woocommerce'),
+					'type' => 'checkbox',
+					'label' => __('Включен', 'woocommerce'),
+					'description' => __('Создать чек для отправки в ОФД.', 'woocommerce'),
+					'default' => 'no',
+				),
+				'ofd_tax_type' => array(
+					'title' => __('Ставка НДС', 'woocommerce'),
+					'type' => 'select',
+					'description' => __('Ставка НДС, которая будет указана в чеке'),
+					'default' => 'none',
+					'options' => array(
+						'none' => __('Не облагается', 'woocommerce'),
+						'0' => __('0 %', 'woocommerce'),
+						'10' => __('10 %', 'woocommerce'),
+						'18' => __('18 %', 'woocommerce'),
+						'110' => __('10 / 110', 'woocommerce'),
+						'118' => __('18 / 118', 'woocommerce'),
+					),
+				),
 			);
 	}
 
@@ -182,33 +204,13 @@ class WC_Platron extends WC_Payment_Gateway{
 	 * Process the payment and return the result
 	 **/
 	function process_payment($order_id){
-		$order = new WC_Order($order_id);
+		global $woocommerce;
 
-		return array(
-			'result' => 'success',
-			'redirect'	=> add_query_arg('order', $order->id, add_query_arg('key', $order->order_key, get_permalink(woocommerce_get_page_id('pay'))))
-		);
-	}
-	
-	/**
-	* Форма оплаты
-	**/
-	function receipt_page($order_id){
-		echo '<p>'.__('Спасибо за Ваш заказ, пожалуйста, нажмите кнопку ниже, чтобы заплатить.', 'woocommerce').'</p>';
-		$strReuestUrl = 'http://'.$_SERVER['HTTP_HOST'].'/index.php?wc-api=wc_platron';
-		
-        $order = new WC_Order( $order_id );
-		$arrCartItems = $order->get_items();
-		$strDescription = '';
-		foreach($arrCartItems as $arrItem){
-			$strDescription .= $arrItem['name'];
-			if($arrItem['qty'] > 1)
-				$strDescription .= '*'.$arrItem['qty']."; ";
-			else
-				$strDescription .= "; ";
-		}
-				
-        $arrFields = array(
+		$order = wc_get_order($order_id);
+
+		$requestUrl = $this->get_return_url();
+
+		$initPaymentParams = array(
 			'pg_merchant_id'		=> $this->merchant_id,
 			'pg_order_id'			=> $order_id,
 			'pg_currency'			=> get_woocommerce_currency(),
@@ -216,39 +218,107 @@ class WC_Platron extends WC_Payment_Gateway{
 			'pg_user_phone'			=> $order->billing_phone,
 			'pg_user_email'			=> $order->billing_email,
 			'pg_user_contact_email'	=> $order->billing_email,
-			'pg_lifetime'			=> ($this->lifetime)?$this->lifetime*60:0,
-			'pg_testing_mode'		=> ($this->testmode == 'yes')?1:0,
-			'pg_description'		=> $strDescription,
-			'pg_user_ip'			=> $_SERVER['REMOTE_ADDR'],
-			'pg_language'			=> (WPLANG == 'ru_RU')?'ru':'en',
-			'pg_check_url'			=> $strReuestUrl."&type=check",
-			'pg_result_url'			=> $strReuestUrl."&type=result",
+			'pg_lifetime'			=> ($this->lifetime) ? ($this->lifetime) * 60 : 0,
+			'pg_testing_mode'		=> ($this->testmode == 'yes') ? 1 : 0,
+			'pg_description'		=> $this->generateOrderDescription($order),
+			//'pg_user_ip'			=> $_SERVER['REMOTE_ADDR'],
+			'pg_language'			=> (get_locale() == 'ru_RU') ? 'ru' : 'en',
+			'pg_check_url'			=> $requestUrl."&type=check",
+			'pg_result_url'			=> $requestUrl."&type=result",
 			'pg_request_method'		=> 'POST',
-			'pg_success_url'		=> $strReuestUrl."&type=success",
-			'pg_failure_url'		=> $strReuestUrl."&type=failed",
-			'pg_salt'				=> rand(21,43433), // Параметры безопасности сообщения. Необходима генерация pg_salt и подписи сообщения.
+			'pg_success_url'		=> $requestUrl."&type=success",
+			'pg_failure_url'		=> $requestUrl."&type=failed",
+			'pg_salt'				=> rand(21,43433),
 		);
-		
-		if(!empty($this->payment_system_name))
-			$arrFields['payment_system_name'] = $this->payment_system_name;
-		
-		$arrFields['cms_payment_module'] = 'WOO_COMMERCE';
-		$arrFields['pg_sig'] = PG_Signature::make('payment.php', $arrFields, $this->secret_key);
-		
-        foreach ($arrFields as $strFieldName => $strFieldValue) {
-            $args_array[] = '<input type="hidden" name="'.esc_attr($strFieldName).'" value="'.esc_attr($strFieldValue).'" />';
-        }
+		if (!empty($this->payment_system_name)) {
+			$initPaymentParams['payment_system_name'] = $this->payment_system_name;
+		}
+		$initPaymentParams['cms_payment_module'] = 'WOO_COMMERCE';
+		$initPaymentParams['pg_sig'] = PG_Signature::make('init_payment.php', $initPaymentParams, $this->secret_key);
 
-		echo '<form action="'.esc_url("https://platron.ru/payment.php").'" method="POST" id="platron_payment_form">'."\n".
-            implode("\n", $args_array).
-            '<input type="submit" class="button alt" id="submit_platron_payment_form" value="'.__('Оплатить', 'woocommerce').'" />'. 
-//			'<a class="button cancel" href="'.$order->get_cancel_order_url().'">'.__('Отказаться от оплаты & вернуться в корзину', 'woocommerce').'</a>'."\n".
-            '</form>
-			<script type="text/javascript">
-			setTimeout(function () {
-				document.getElementById("platron_payment_form").submit();
-			}, 1000);
-			</script>';
+		$init_payment_response = $this->do_platron_request('init_payment.php', $initPaymentParams);
+		if (is_wp_error($init_payment_response)) {
+			$error_message = $init_payment_response->get_error_message();
+			wc_add_notice( __('Payment error: ', 'woothemes') . $error_message, 'error' );
+			return;
+		}
+
+		if ($this->send_receipt) {
+			$receipt = new OfdReceiptRequest($this->merchant_id, (string) $init_payment_response->pg_payment_id);
+			$receipt->items = $this->prepareOfdItems($order);
+			if ($order->get_shipping_total() > 0) {
+				$ofdItem = new OfdReceiptItem();
+				$ofdItem->label = __('Доставка', 'woocommerce');
+				$ofdItem->price = round($order->get_shipping_total(), 2);
+				$ofdItem->quantity = 1;
+				$ofdItem->amount = round($order->get_shipping_total(), 2);
+				$ofdItem->vat = '18';
+				$receipt->items[] = $ofdItem;
+			}
+			$receipt->prepare();
+			$receipt->sign($this->secret_key);
+
+			$create_receipt_response = $this->do_platron_request('receipt.php', array('pg_xml'=>$receipt->asXml()));
+			if (is_wp_error($create_receipt_response)) {
+				$error_message = $create_receipt_response->get_error_message();
+				wc_add_notice( __('Payment error: ', 'woothemes') . $error_message, 'error' );
+				return;
+			}
+		}
+
+		$woocommerce->cart->empty_cart();
+
+		return array(
+			'result' => 'success',
+			'redirect'	=> (string) $init_payment_response->pg_redirect_url,
+		);
+	}
+	
+	private function generateOrderDescription($order) {
+		$itemDescriptions = array();
+		foreach ($order->get_items() as $item) {
+			$itemDescriptions[] = $item->get_product()->get_name() . ' * ' . $item->get_quantity();
+		}
+		return implode('; ', $itemDescriptions);
+	}
+
+	private function prepareOfdItems($order) {
+		$ofdItems = array();
+		foreach ($order->get_items() as $item) {
+			$ofdItem = new OfdReceiptItem();
+			$ofdItem->label = substr($item->get_product()->get_name(), 0, 128);
+			$ofdItem->price = round($item->get_product()->get_price(), 2);
+			$ofdItem->quantity = round($item->get_quantity(), 2);
+			$ofdItem->amount = round($item->get_total(), 2);
+			$ofdItem->vat = $this->tax_type;
+			$ofdItems[] = $ofdItem;
+		}
+
+		return $ofdItems;
+	}
+
+	private function do_platron_request($script, $params) {
+		$url = 'https://www.platron.ru/' . $script;
+		$response = wp_remote_post($url, array('body' => $params));
+		if (is_wp_error($response)) {
+			return new WP_Error(self::ERROR_TYPE, $response->get_error_message());
+		}
+		if (wp_remote_retrieve_response_code($response) != '200') {
+			return new WP_Error(self::ERROR_TYPE, 'Invalid response code: ' . wp_remote_retrieve_response_code($response));
+		}
+		try {
+			$responseXmlElement = new SimpleXMLElement(wp_remote_retrieve_body($response));
+		} catch (Exception $e) {
+			return new WP_Error(self::ERROR_TYPE, 'Can not load xml from request');
+		}
+		if (!PG_Signature::checkXML($script, $responseXmlElement, $this->secret_key)) {
+			return new WP_Error(self::ERROR_TYPE, 'Invalid response signature');
+		}
+		if ($responseXmlElement->pg_status == 'error') {
+			return new WP_Error(self::ERROR_TYPE, $responseXmlElement->pg_error_description);
+		}
+
+		return $responseXmlElement;
 	}
 	
 	/**
