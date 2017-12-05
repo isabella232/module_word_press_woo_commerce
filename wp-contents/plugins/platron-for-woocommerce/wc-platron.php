@@ -208,7 +208,7 @@ class WC_Platron extends WC_Payment_Gateway{
 
 		$order = wc_get_order($order_id);
 
-		$requestUrl = $this->get_return_url();
+		$requestUrl = add_query_arg('wc-api', 'WC_Platron', home_url('/'));
 
 		$initPaymentParams = array(
 			'pg_merchant_id'		=> $this->merchant_id,
@@ -223,11 +223,11 @@ class WC_Platron extends WC_Payment_Gateway{
 			'pg_description'		=> $this->generateOrderDescription($order),
 			//'pg_user_ip'			=> $_SERVER['REMOTE_ADDR'],
 			'pg_language'			=> (get_locale() == 'ru_RU') ? 'ru' : 'en',
-			'pg_check_url'			=> $requestUrl."&type=check",
-			'pg_result_url'			=> $requestUrl."&type=result",
+			'pg_check_url'			=> add_query_arg('type', 'check', $requestUrl),
+			'pg_result_url'			=> add_query_arg('type', 'result', $requestUrl),
 			'pg_request_method'		=> 'POST',
-			'pg_success_url'		=> $requestUrl."&type=success",
-			'pg_failure_url'		=> $requestUrl."&type=failed",
+			'pg_success_url'		=> add_query_arg('type', 'success', $requestUrl),
+			'pg_failure_url'		=> add_query_arg('type', 'failed', $requestUrl),
 			'pg_salt'				=> rand(21,43433),
 		);
 		if (!empty($this->payment_system_name)) {
@@ -277,6 +277,7 @@ class WC_Platron extends WC_Payment_Gateway{
 	private function generateOrderDescription($order) {
 		$itemDescriptions = array();
 		foreach ($order->get_items() as $item) {
+			var_dump($item);echo "<br>";
 			$itemDescriptions[] = $item->get_product()->get_name() . ' * ' . $item->get_quantity();
 		}
 		return implode('; ', $itemDescriptions);
