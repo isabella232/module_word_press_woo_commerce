@@ -327,13 +327,13 @@ class WC_Platron extends WC_Payment_Gateway{
 	**/
 	function check_assistant_response(){
 		global $woocommerce;
-		
+
 		if(!empty($_POST))
 			$arrRequest = $_POST;
 		else
 			$arrRequest = $_GET;
 		
-		$thisScriptName = PG_Signature::getOurScriptName();
+		$thisScriptName = PG_Signature::getScriptNameFromUrl(home_url('/'));
 		if (empty($arrRequest['pg_sig']) || !PG_Signature::check($arrRequest['pg_sig'], $thisScriptName, $arrRequest, $this->secret_key))
 			die("Wrong signature");
 
@@ -342,15 +342,15 @@ class WC_Platron extends WC_Payment_Gateway{
 		$arrResponse = array();
 		$aGoodCheckStatuses = array('pending','processing');
 		$aGoodResultStatuses = array('pending','processing','completed');
-		
+
 		switch($_GET['type']){
 			case 'check':
 				$bCheckResult = 1;			
-				if(empty($objOrder) || !in_array($objOrder->status, $aGoodCheckStatuses)){
+				if(empty($objOrder) || !in_array($objOrder->get_status(), $aGoodCheckStatuses)){
 					$bCheckResult = 0;
-					$error_desc = 'Order status '.$objOrder->status.' or deleted order';
+					$error_desc = 'Order status '.$objOrder->get_status().' or deleted order';
 				}
-				if(intval($objOrder->order_total) != intval($arrRequest['pg_amount'])){
+				if(intval($objOrder->get_total()) != intval($arrRequest['pg_amount'])){
 					$bCheckResult = 0;
 					$error_desc = 'Wrong amount';
 				}
@@ -368,16 +368,16 @@ class WC_Platron extends WC_Payment_Gateway{
 				break;
 				
 			case 'result':	
-				if(intval($objOrder->order_total) != intval($arrRequest['pg_amount'])){
+				if(intval($objOrder->get_total()) != intval($arrRequest['pg_amount'])){
 					$strResponseDescription = 'Wrong amount';
 					if($arrRequest['pg_can_reject'] == 1)
 						$strResponseStatus = 'rejected';
 					else
 						$strResponseStatus = 'error';
 				}
-				elseif((empty($objOrder) || !in_array($objOrder->status, $aGoodResultStatuses)) && 
-						!($arrRequest['pg_result'] == 0 && $objOrder->status == 'failed')){
-					$strResponseDescription = 'Order status '.$objOrder->status.' or deleted order';
+				elseif((empty($objOrder) || !in_array($objOrder->get_status(), $aGoodResultStatuses)) && 
+						!($arrRequest['pg_result'] == 0 && $objOrder->get_status() == 'failed')){
+					$strResponseDescription = 'Order status '.$objOrder->get_status().' or deleted order';
 					if($arrRequest['pg_can_reject'] == 1)
 						$strResponseStatus = 'rejected';
 					else
