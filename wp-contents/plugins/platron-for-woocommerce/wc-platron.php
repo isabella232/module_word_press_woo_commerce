@@ -385,7 +385,7 @@ class WC_Platron extends WC_Payment_Gateway{
 					$strResponseStatus = 'ok';
 					$strResponseDescription = "Request cleared";
 					if ($arrRequest['pg_result'] == 1){
-						$objOrder->update_status('completed', __('Платеж успешно оплачен', 'woocommerce'));
+						$objOrder->payment_complete();
 						WC()->cart->empty_cart();
 					}
 					else{
