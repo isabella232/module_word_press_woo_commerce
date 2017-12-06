@@ -277,7 +277,6 @@ class WC_Platron extends WC_Payment_Gateway{
 	private function generateOrderDescription($order) {
 		$itemDescriptions = array();
 		foreach ($order->get_items() as $item) {
-			var_dump($item);echo "<br>";
 			$itemDescriptions[] = $item->get_product()->get_name() . ' * ' . $item->get_quantity();
 		}
 		return implode('; ', $itemDescriptions);
