@@ -252,7 +252,7 @@ class WC_Platron extends WC_Payment_Gateway{
 				$ofdItem->price = round($order->get_shipping_total(), 2);
 				$ofdItem->quantity = 1;
 				$ofdItem->amount = round($order->get_shipping_total(), 2);
-				$ofdItem->vat = '18';
+				$ofdItem->vat =  $this->tax_type == 'none'? 'none': '18';
 				$receipt->items[] = $ofdItem;
 			}
 			$receipt->prepare();
