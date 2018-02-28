@@ -8,7 +8,7 @@ require_once('ofd.php');
   Plugin Name: Platron Payment Gateway
   Plugin URI: http://patron.ru/integration/woocommerce
   Description: Provides a Platron Payment Gateway.
-  Version: 1.0.1
+  Version: 1.0.2
   Author: Platron
  */
 
