@@ -183,9 +183,9 @@ class WC_Platron extends WC_Payment_Gateway{
 						'none' => __('Не облагается', 'woocommerce'),
 						'0' => __('0 %', 'woocommerce'),
 						'10' => __('10 %', 'woocommerce'),
-						'18' => __('18 %', 'woocommerce'),
+						'20' => __('20 %', 'woocommerce'),
 						'110' => __('10 / 110', 'woocommerce'),
-						'118' => __('18 / 118', 'woocommerce'),
+						'120' => __('20 / 120', 'woocommerce'),
 					),
 				),
 			);
@@ -252,7 +252,8 @@ class WC_Platron extends WC_Payment_Gateway{
 				$ofdItem->price = round($order->get_shipping_total(), 2);
 				$ofdItem->quantity = 1;
 				$ofdItem->amount = round($order->get_shipping_total(), 2);
-				$ofdItem->vat =  $this->tax_type == 'none'? 'none': '18';
+				$ofdItem->vat =  $this->tax_type == 'none'? 'none': '20';
+				$ofdItem->type = 'service';
 				$receipt->items[] = $ofdItem;
 			}
 			$receipt->prepare();
