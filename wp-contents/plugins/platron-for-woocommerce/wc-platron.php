@@ -404,10 +404,10 @@ class WC_Platron extends WC_Payment_Gateway{
 				break;
 			case 'success':
 				wp_redirect( $this->get_return_url( $objOrder ) );
-				break;
+				exit;
 			case 'failed':
 				wp_redirect($objOrder->get_cancel_order_url());
-				break;
+				exit;
 			default :
 				die('wrong type');
 		}
