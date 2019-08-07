@@ -4,7 +4,7 @@ Donate link: http://www.platron.ru/
 Tags: payment gate, payment system, woocommerce, platron, payment, payment gateway
 Requires at least: 3.0.1
 Tested up to: 4.8
-Stable tag: 2.1.1
+Stable tag: 2.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,6 +34,9 @@ Platron – это 9 лет успешной работы и более 5 000 п
 
 = 2.0 =
 Add receipts
+
+= 2.2 =
+Fix return customer error
 
 == Screenshots ==
 
