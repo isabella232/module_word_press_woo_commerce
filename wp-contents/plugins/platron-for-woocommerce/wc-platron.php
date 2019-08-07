@@ -4,15 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 require_once('PG_Signature.php');
 require_once('ofd.php');
 
-/**
-  Plugin Name: Platron Payment Gateway
-  Plugin URI: http://patron.ru/integration/woocommerce
-  Description: Provides a Platron Payment Gateway.
-  Version: 1.0.1
-  Author: Platron
- */
-
-
 /* Add a custom payment class to WC
   ------------------------------------------------------------ */
 add_action('plugins_loaded', 'woocommerce_platron', 0);
