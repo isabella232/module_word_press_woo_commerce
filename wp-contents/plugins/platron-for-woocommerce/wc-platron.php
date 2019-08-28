@@ -1,4 +1,8 @@
 <?php 
+/**
+ * Plugin Name:       Platron for WooCommerce
+ * Version:           2.2
+ */
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 require_once('PG_Signature.php');
